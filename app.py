@@ -25,20 +25,20 @@ FALLBACK_STOCKS = {
     "2330.TW": {
         "ticker": "2330.TW",
         "name": "台積電",
-        "price": 2395.0,
+        "price": 2380.0,
         "currency": "TWD",
         "change_percent": -1.64,
-        "market_cap": "62.11兆",
-        "pe_ratio": 24.5,
-        "pb_ratio": 6.8,
-        "eps": 97.7,
-        "bps": 352.0,
+        "market_cap": "61.72兆",
+        "pe_ratio": 27.8,
+        "pb_ratio": 9.57,
+        "eps": 85.44,
+        "bps": 248.05,
         "dividend_yield": 1.66,
-        "revenue_growth": 28.5,
-        "gross_margin": 54.3,
-        "operating_margin": 43.1,
-        "roe": 29.8,
-        "fcf_per_share": 85.0,
+        "revenue_growth": 36.0,
+        "gross_margin": 64.23,
+        "operating_margin": 60.34,
+        "roe": 39.97,
+        "fcf_per_share": 28.18,
         "high_52w": 2500.0,
         "low_52w": 900.0,
         "sma5": 2410.0,
@@ -1046,10 +1046,45 @@ def fetch_stock_data(ticker_symbol):
                     prev_close = info.get("previousClose", price)
                     change_pct = round(((price - prev_close) / prev_close) * 100, 2) if prev_close else 0.0
                     
-                    eps = round(float(info.get("trailingEps") or info.get("forwardEps") or 5.0), 2)
-                    pe = round(float(info.get("trailingPE") or info.get("forwardPE") or (price / eps if eps > 0 else 20.0)), 2)
-                    pb = round(float(info.get("priceToBook") or 3.5), 2)
-                    bps = round(float(info.get("bookValue") or (price / pb if pb > 0 else 30.0)), 2)
+                    # 1. 精確 EPS (每股盈餘)
+                    eps_val = info.get("trailingEps") or info.get("forwardEps")
+                    if eps_val is None or float(eps_val) == 0:
+                        try:
+                            shares = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+                            q_fin = yt.quarterly_financials
+                            if q_fin is not None and not q_fin.empty and shares and shares > 0:
+                                ni_row = next((r for r in ['Net Income Common Stockholders', 'Net Income', 'Net Income Continuous Operations'] if r in q_fin.index), None)
+                                if ni_row:
+                                    ttm_ni = q_fin.loc[ni_row].iloc[:4].sum()
+                                    eps_val = float(ttm_ni / shares)
+                        except Exception:
+                            pass
+                    if eps_val is None or float(eps_val) == 0:
+                        pe_val = float(info.get("trailingPE") or 15.0)
+                        eps_val = float(price / pe_val) if pe_val > 0 else 0.0
+                    eps = round(float(eps_val), 2)
+
+                    pe = round(float(info.get("trailingPE") or info.get("forwardPE") or (price / eps if eps > 0 else 15.0)), 2)
+
+                    # 2. 精確 BPS (每股淨值)
+                    bps_val = info.get("bookValue")
+                    if bps_val is None or float(bps_val) == 0:
+                        try:
+                            shares = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+                            q_bs = yt.quarterly_balance_sheet
+                            if q_bs is not None and not q_bs.empty and shares and shares > 0:
+                                eq_row = next((r for r in ['Stockholders Equity', 'Common Stock Equity', 'Total Equity Gross Minority Interest'] if r in q_bs.index), None)
+                                if eq_row:
+                                    latest_eq = q_bs.loc[eq_row].iloc[0]
+                                    bps_val = float(latest_eq / shares)
+                        except Exception:
+                            pass
+                    if bps_val is None or float(bps_val) == 0:
+                        pb_val = float(info.get("priceToBook") or 2.0)
+                        bps_val = float(price / pb_val) if pb_val > 0 else 0.0
+                    bps = round(float(bps_val), 2)
+
+                    pb = round(float(info.get("priceToBook") or (price / bps if bps > 0 else 2.0)), 2)
                     
                     # 股利殖利率權威計算公式: (每股現金股利 / 當前股價) * 100%
                     div_rate = float(info.get("dividendRate") or info.get("trailingAnnualDividendRate") or 0.0)
@@ -1064,10 +1099,79 @@ def fetch_stock_data(ticker_symbol):
                         else:
                             div_yield = 0.0
 
-                    rev_growth = round(float(info.get("revenueGrowth") or 0.1) * 100, 2)
-                    gross_margin = round(float(info.get("grossMargins") or 0.4) * 100, 2)
-                    op_margin = round(float(info.get("operatingMargins") or 0.2) * 100, 2)
-                    roe = round(float(info.get("returnOnEquity") or 0.15) * 100, 2)
+                    # 3. 營收年增率 (YoY)
+                    rev_g_val = info.get("revenueGrowth")
+                    if rev_g_val is None:
+                        try:
+                            q_fin = yt.quarterly_financials
+                            if q_fin is not None and not q_fin.empty:
+                                rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in q_fin.index), None)
+                                cols = list(q_fin.columns)
+                                if rev_row and len(cols) >= 5:
+                                    r_latest = q_fin.loc[rev_row].iloc[0]
+                                    r_yoy = q_fin.loc[rev_row].iloc[4]
+                                    if r_yoy and r_yoy != 0:
+                                        rev_g_val = float((r_latest - r_yoy) / abs(r_yoy))
+                        except Exception:
+                            pass
+                    rev_growth = round(float(rev_g_val * 100), 2) if rev_g_val is not None else 0.0
+
+                    # 4. 毛利率 (Gross Margin)
+                    gm_val = info.get("grossMargins")
+                    if gm_val is None:
+                        try:
+                            q_fin = yt.quarterly_financials
+                            if q_fin is not None and not q_fin.empty:
+                                rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in q_fin.index), None)
+                                gp_row = next((r for r in ['Gross Profit'] if r in q_fin.index), None)
+                                if rev_row and gp_row:
+                                    r_latest = q_fin.loc[rev_row].iloc[0]
+                                    gp_latest = q_fin.loc[gp_row].iloc[0]
+                                    if r_latest and r_latest != 0:
+                                        gm_val = float(gp_latest / r_latest)
+                        except Exception:
+                            pass
+                    gross_margin = round(float(gm_val * 100), 2) if gm_val is not None else 0.0
+
+                    # 5. 營業利益率 (Op Margin)
+                    om_val = info.get("operatingMargins")
+                    if om_val is None:
+                        try:
+                            q_fin = yt.quarterly_financials
+                            if q_fin is not None and not q_fin.empty:
+                                rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in q_fin.index), None)
+                                op_row = next((r for r in ['Operating Income', 'Total Operating Income As Reported'] if r in q_fin.index), None)
+                                if rev_row and op_row:
+                                    r_latest = q_fin.loc[rev_row].iloc[0]
+                                    op_latest = q_fin.loc[op_row].iloc[0]
+                                    if r_latest and r_latest != 0:
+                                        om_val = float(op_latest / r_latest)
+                        except Exception:
+                            pass
+                    op_margin = round(float(om_val * 100), 2) if om_val is not None else 0.0
+
+                    # 6. 每股自由現金流 (FCF per Share)
+                    fcf = info.get("freeCashflow")
+                    shares = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+                    fcf_per_share_val = None
+                    if fcf is not None and shares and shares > 0:
+                        fcf_per_share_val = float(fcf / shares)
+                    if fcf_per_share_val is None:
+                        try:
+                            q_cf = yt.quarterly_cashflow
+                            if q_cf is not None and not q_cf.empty and shares and shares > 0:
+                                ocf_row = next((r for r in ['Operating Cash Flow', 'Free Cash Flow'] if r in q_cf.index), None)
+                                capex_row = next((r for r in ['Capital Expenditure'] if r in q_cf.index), None)
+                                if ocf_row:
+                                    ttm_ocf = q_cf.loc[ocf_row].iloc[:4].sum()
+                                    ttm_capex = q_cf.loc[capex_row].iloc[:4].sum() if capex_row else 0
+                                    fcf_per_share_val = float((ttm_ocf + ttm_capex) / shares)
+                        except Exception:
+                            pass
+                    fcf_per_share = round(float(fcf_per_share_val), 2) if fcf_per_share_val is not None else round(eps * 0.8, 2)
+
+                    roe_val = info.get("returnOnEquity")
+                    roe = round(float(roe_val * 100), 2) if roe_val is not None else (round(float((eps / bps) * 100), 2) if bps > 0 else 0.0)
                     market_cap_num = info.get("marketCap", 0)
                     
                     if market_cap_num > 1e12:
@@ -1193,7 +1297,7 @@ def fetch_stock_data(ticker_symbol):
                         "gross_margin": float(gross_margin),
                         "operating_margin": float(op_margin),
                         "roe": float(roe),
-                        "fcf_per_share": round(eps * 0.9, 2),
+                        "fcf_per_share": float(fcf_per_share),
                         "high_52w": float(high_52w),
                         "low_52w": float(low_52w),
                         "sma5": float(sma5),
@@ -1225,9 +1329,9 @@ def fetch_stock_data(ticker_symbol):
             pe = tw_data.get("pe_ratio", 15.0)
             pb = tw_data.get("pb_ratio", 2.0)
             div_yield = tw_data.get("dividend_yield", 3.5)
-            eps = round(price / pe, 2) if pe > 0 else 10.0
-            bps = round(price / pb, 2) if pb > 0 else 50.0
-            roe = round((eps / bps) * 100, 2) if bps > 0 else 15.0
+            eps = round(price / pe, 2) if pe > 0 else 0.0
+            bps = round(price / pb, 2) if pb > 0 else 0.0
+            roe = round((eps / bps) * 100, 2) if bps > 0 else 0.0
             mcap_str = "中大型企業"
             display_name = twse_company_name if twse_company_name else tw_data.get("name", twse_code)
             industry_key, industry_name = classify_stock_industry(ticker_symbol, {}, display_name)
@@ -1250,11 +1354,11 @@ def fetch_stock_data(ticker_symbol):
                 "eps": float(eps),
                 "bps": float(bps),
                 "dividend_yield": float(div_yield),
-                "revenue_growth": 15.5,
-                "gross_margin": 18.2,
-                "operating_margin": 8.5,
+                "revenue_growth": 0.0,
+                "gross_margin": 0.0,
+                "operating_margin": 0.0,
                 "roe": float(roe),
-                "fcf_per_share": round(eps * 0.85, 2),
+                "fcf_per_share": round(eps * 0.8, 2),
                 "high_52w": float(tw_data.get("high", price * 1.05)),
                 "low_52w": float(tw_data.get("low", price * 0.95)),
                 "sma5": float(sma5),

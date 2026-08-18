@@ -182,17 +182,18 @@ function updateStockSummaryUI(stock) {
 
 // Update Dashboard Tab
 function updateDashboardUI(stock) {
+    const currSymbol = stock.currency === 'TWD' ? 'NT$' : '$';
     document.getElementById("dashCap").innerText = stock.market_cap;
-    document.getElementById("dashEPS").innerText = `$${stock.eps.toFixed(2)}`;
-    document.getElementById("dashBPS").innerText = `$${stock.bps.toFixed(2)}`;
+    document.getElementById("dashEPS").innerText = `${currSymbol}${stock.eps.toFixed(2)}`;
+    document.getElementById("dashBPS").innerText = `${currSymbol}${stock.bps.toFixed(2)}`;
     
     const revElem = document.getElementById("dashRevGrowth");
-    revElem.innerText = `${stock.revenue_growth >= 0 ? '+' : ''}${stock.revenue_growth}%`;
+    revElem.innerText = `${stock.revenue_growth >= 0 ? '+' : ''}${stock.revenue_growth.toFixed(1)}%`;
     revElem.className = stock.revenue_growth >= 0 ? "trend-up" : "trend-down";
     
-    document.getElementById("dashGrossMargin").innerText = `${stock.gross_margin}%`;
-    document.getElementById("dashOpMargin").innerText = `${stock.operating_margin}%`;
-    document.getElementById("dashFCF").innerText = `$${stock.fcf_per_share.toFixed(2)}`;
+    document.getElementById("dashGrossMargin").innerText = `${stock.gross_margin.toFixed(1)}%`;
+    document.getElementById("dashOpMargin").innerText = `${stock.operating_margin.toFixed(1)}%`;
+    document.getElementById("dashFCF").innerText = `${currSymbol}${stock.fcf_per_share.toFixed(2)}`;
     
     document.getElementById("moatRating").innerText = `${stock.moat} Moat`;
     document.getElementById("moatDesc").innerText = stock.moat_desc;

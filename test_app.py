@@ -30,6 +30,11 @@ class StockAppTestCase(unittest.TestCase):
         self.assertIn('macd_dif', data1['data'])
         self.assertIn('macd_dea', data1['data'])
         self.assertIn('macd_hist', data1['data'])
+        # Financial indicator assertions for TSMC (2330.TW)
+        self.assertGreater(data1['data']['eps'], 50.0) # Real EPS > 50 TWD
+        self.assertGreater(data1['data']['gross_margin'], 50.0) # TSMC Gross Margin > 50%
+        self.assertGreater(data1['data']['operating_margin'], 40.0) # TSMC Op Margin > 40%
+        self.assertGreater(data1['data']['bps'], 150.0) # TSMC BPS > 150 TWD
 
         # US Stock
         res2 = self.app.get('/api/stock/NVDA')
@@ -42,6 +47,9 @@ class StockAppTestCase(unittest.TestCase):
         self.assertIn('kd_k', data2['data'])
         self.assertIn('kd_d', data2['data'])
         self.assertIn('macd_dif', data2['data'])
+        # Financial indicator assertions for NVDA
+        self.assertGreater(data2['data']['gross_margin'], 60.0) # NVDA Gross Margin > 60%
+        self.assertGreater(data2['data']['revenue_growth'], 30.0) # NVDA YoY Growth > 30%
 
     def test_kd_macd_indicators(self):
         """Test KD and MACD indicators signals in strategy API"""
