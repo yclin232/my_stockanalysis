@@ -1116,6 +1116,8 @@ def fetch_stock_data(ticker_symbol):
                     del SEARCHED_STOCK_CACHE[ticker_symbol]
                 else:
                     return cached_res
+            elif cached_res.get("eps") is None or cached_res.get("bps") is None:
+                del SEARCHED_STOCK_CACHE[ticker_symbol]
             else:
                 return cached_res
     
