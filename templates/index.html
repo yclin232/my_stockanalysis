@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockMatrix - 全方位股票與產業分析平台</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Header Navigation -->
+        <header class="app-header">
+            <div class="logo-group">
+                <i class="fa-solid fa-chart-line logo-icon"></i>
+                <div class="logo-text">
+                    <h1>StockMatrix</h1>
+                    <span>智能股票產業分析與評價系統</span>
+                </div>
+            </div>
+
+            <!-- Ticker Search Box -->
+            <div class="search-section">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="tickerInput" list="stockDatalist" placeholder="輸入股票代碼或中文公司名稱 (例: 2330, 台積電, 輝達, 聯發科)" value="2330.TW">
+                    <datalist id="stockDatalist"></datalist>
+                    <button id="searchBtn" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> 分析</button>
+                </div>
+                <div class="quick-presets">
+                    <span class="chip" onclick="quickSearch('2330')">2330 台積電</span>
+                    <span class="chip" onclick="quickSearch('2618')">2618 長榮航</span>
+                    <span class="chip" onclick="quickSearch('2317')">2317 鴻海</span>
+                    <span class="chip" onclick="quickSearch('2454')">2454 聯發科</span>
+                    <span class="chip" onclick="quickSearch('2603')">2603 長榮</span>
+                    <span class="chip" onclick="quickSearch('2881')">2881 富邦金</span>
+                    <span class="chip" onclick="quickSearch('NVDA')">NVDA 輝達</span>
+                    <span class="chip" onclick="quickSearch('TSLA')">TSLA 特斯拉</span>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="printReport()"><i class="fa-solid fa-print"></i> 列印/匯出報告</button>
+            </div>
+        </header>
+
+        <!-- Search Error Alert Banner -->
+        <div class="search-error-banner" id="searchErrorBanner" style="display: none;">
+            <div class="error-msg-content">
+                <i class="fa-solid fa-circle-exclamation error-icon"></i>
+                <span id="errorMessageText">找不到該股票資料，請檢查輸入名稱或代碼！</span>
+            </div>
+            <button class="close-error-btn" onclick="hideSearchError()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Stock Live Bar -->
+        <section class="stock-summary-bar" id="stockSummaryBar">
+            <div class="stock-title">
+                <h2 id="stockName">台積電 (2330.TW)</h2>
+                <span class="badge badge-industry" id="stockIndustryBadge">半導體晶圓代工</span>
+            </div>
+            <div class="metric-row">
+                <div class="metric-item">
+                    <span class="label">最新股價</span>
+                    <span class="value price-val" id="stockPrice">$965.0 <small class="currency">TWD</small></span>
+                </div>
+                <div class="metric-item">
+                    <span class="label">漲跌幅</span>
+                    <span class="value trend-up" id="stockChange">+1.58%</span>
+                </div>
+                <div class="metric-item">
+                    <span class="label">本益比 (P/E)</span>
+                    <span class="value" id="stockPE">24.5 倍</span>
+                </div>
+                <div class="metric-item">
+                    <span class="label">本淨比 (P/B)</span>
+                    <span class="value" id="stockPB">6.8 倍</span>
+                </div>
+                <div class="metric-item">
+                    <span class="label">股利殖利率</span>
+                    <span class="value highlight-val" id="stockYield">1.66%</span>
+                </div>
+                <div class="metric-item">
+                    <span class="label">ROE 報酬率</span>
+                    <span class="value" id="stockROE">29.8%</span>
+                </div>
+                <div class="metric-item">
+                    <span class="label">5日乖離率 (BIAS)</span>
+                    <span class="value" id="stockBias5">+0.00%</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="tab-dashboard"><i class="fa-solid fa-gauge-high"></i> 總覽與指標</button>
+            <button class="tab-btn" data-tab="tab-industry"><i class="fa-solid fa-sitemap"></i> 產業分析 (Industry)</button>
+            <button class="tab-btn" data-tab="tab-strategy"><i class="fa-solid fa-chess-knight"></i> 投資策略分析 (Strategy)</button>
+            <button class="tab-btn" data-tab="tab-valuation"><i class="fa-solid fa-scale-balanced"></i> 個股評價 (Valuation)</button>
+            <button class="tab-btn" data-tab="tab-report"><i class="fa-solid fa-file-contract"></i> 完整網頁報告 (Report)</button>
+            <button class="tab-btn" data-tab="tab-skills"><i class="fa-solid fa-book-bookmark"></i> Skill 規範設定</button>
+        </nav>
+
+        <!-- Main Tab Content Area -->
+        <main class="content-container">
+
+            <!-- TAB 1: DASHBOARD -->
+            <div class="tab-pane active" id="tab-dashboard">
+                <div class="grid-layout grid-3">
+                    <!-- Card 1: Key Financial Ratios -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-pie"></i> 核心財務與獲利指標</h3>
+                        </div>
+                        <div class="card-body">
+                            <ul class="info-list">
+                                <li><span>市值 (Market Cap)</span><strong id="dashCap">25.02 兆</strong></li>
+                                <li><span>每股盈餘 (EPS TTM)</span><strong id="dashEPS">$39.40</strong></li>
+                                <li><span>每股淨值 (BPS)</span><strong id="dashBPS">$141.90</strong></li>
+                                <li><span>營收年增率 (YoY)</span><strong id="dashRevGrowth" class="trend-up">+28.5%</strong></li>
+                                <li><span>毛利率 (Gross Margin)</span><strong id="dashGrossMargin">54.3%</strong></li>
+                                <li><span>營業利益率 (Op Margin)</span><strong id="dashOpMargin">43.1%</strong></li>
+                                <li><span>每股自由現金流 (FCF)</span><strong id="dashFCF">$35.20</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Moat & Business Strength -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-shield-halved"></i> 企業護城河與評級</h3>
+                        </div>
+                        <div class="card-body flex-center">
+                            <div class="moat-badge-box">
+                                <span class="moat-rating" id="moatRating">Wide Moat</span>
+                                <span class="moat-sub">寬廣護城河</span>
+                            </div>
+                            <p class="moat-desc" id="moatDesc">極高技術壁壘 (2nm/3nm 先進製程)、規模經濟與龐大資本支出護城河。</p>
+                            <div class="progress-box">
+                                <div class="progress-label"><span>財務綜合健康得分</span><strong id="financialScoreVal">88.5 分</strong></div>
+                                <div class="progress-bar"><div class="progress-fill" id="financialScoreFill" style="width: 88.5%;"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Technical & 52w Range -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-simple"></i> 技術動能與 52 週位階</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="range-52w">
+                                <div class="range-labels">
+                                    <span>52W 最低: <strong id="low52w">$550.0</strong></span>
+                                    <span>52W 最高: <strong id="high52w">$1080.0</strong></span>
+                                </div>
+                                <div class="range-bar"><div class="range-pin" id="rangePin" style="left: 78%;"></div></div>
+                            </div>
+                            <div class="tech-metrics-grid">
+                                <div class="mini-box"><span>5日線 (SMA5)</span><strong id="sma5">$0.0</strong></div>
+                                <div class="mini-box"><span>5日乖離率 (BIAS)</span><strong id="bias5Val">0.00%</strong></div>
+                                <div class="mini-box"><span>20日線 (SMA20)</span><strong id="sma20">$0.0</strong></div>
+                                <div class="mini-box"><span>60日線 (SMA60)</span><strong id="sma60">$0.0</strong></div>
+                                <div class="mini-box"><span>120日線 (SMA120)</span><strong id="sma120">$0.0</strong></div>
+                                <div class="mini-box"><span>RSI 指標 (14日)</span><strong id="rsiVal">0.0</strong></div>
+                                <div class="mini-box"><span>KD 指標 (K / D)</span><strong id="kdVal">0 / 0</strong></div>
+                                <div class="mini-box"><span>MACD (DIF/DEA/柱狀)</span><strong id="macdVal">0 / 0 / 0</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Chart Row -->
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-column"></i> 財務趨勢與評價河流指標</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="dashboardChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: INDUSTRY ANALYSIS -->
+            <div class="tab-pane" id="tab-industry">
+                <div class="industry-selector-bar">
+                    <label><i class="fa-solid fa-industry"></i> 切換產業架構：</label>
+                    <select id="industrySelect" onchange="loadIndustryData()">
+                        <optgroup label="💻 電子與科技產業 (Tech & Electronics)">
+                            <option value="semiconductor" selected>14. 半導體業 (Semiconductors)</option>
+                            <option value="computer_peripherals">15. 電腦及週邊設備業 (Computer & Peripherals)</option>
+                            <option value="ai_hardware">AI 算力與硬體系統 (AI Compute)</option>
+                            <option value="green_energy">29. 綠能環保 (Green Energy & Environmental)</option>
+                            <option value="digital_cloud">30. 數位雲端 (Digital & Cloud Services)</option>
+                            <option value="optoelectronics">16. 光電業 (Optoelectronics)</option>
+                            <option value="telecom_services">17. 通信網路業 (Telecommunications & Telecom Services)</option>
+                            <option value="electronic_components">18. 電子零組件業 (Electronic Components)</option>
+                            <option value="electronic_distribution">19. 電子通路業 (Electronic Distribution)</option>
+                            <option value="info_services">20. 資訊服務業 (Information Services)</option>
+                            <option value="other_electronics">21. 其他電子業 (Other Electronics)</option>
+                        </optgroup>
+                        <optgroup label="🏥 生技醫療與內需消費 (Healthcare & Consumer)">
+                            <option value="biotech_healthcare">8. 生技醫療業 (BioTech & Healthcare)</option>
+                            <option value="tourism_hospitality">24. 觀光餐旅 (Tourism & Hospitality)</option>
+                            <option value="retail_trading">26. 貿易百貨 (Department Stores & Retail)</option>
+                            <option value="sports_leisure">31. 運動休閒 (Sports & Leisure)</option>
+                            <option value="household_living">32. 居家生活 (Household & Living)</option>
+                            <option value="food_beverage">2. 食品工業 (Food & Beverage)</option>
+                        </optgroup>
+                        <optgroup label="🏢 金融、航運與地產 (Financials & Infrastructure)">
+                            <option value="financials">25. 金融保險業 (Financials & Insurance)</option>
+                            <option value="shipping_logistics">23. 航運業 (Shipping & Logistics)</option>
+                            <option value="construction">22. 建材營造 (Building & Construction)</option>
+                            <option value="oil_gas">27. 油電燃氣業 (Oil, Gas & Energy)</option>
+                        </optgroup>
+                        <optgroup label="🏗️ 傳統與基礎製造 (Manufacturing & Materials)">
+                            <option value="automotive">13. 汽車工業 (Automotive & EVs)</option>
+                            <option value="electric_machinery">5. 電機機械 (Electric Machinery)</option>
+                            <option value="electrical_cable">6. 電器電纜 (Electrical & Cable)</option>
+                            <option value="chemical">7. 化學工業 (Chemicals)</option>
+                            <option value="steel">11. 鋼鐵工業 (Steel & Metals)</option>
+                            <option value="cement">1. 水泥工業 (Cement)</option>
+                            <option value="plastics">3. 塑膠工業 (Plastics)</option>
+                            <option value="textiles">4. 紡織纖維 (Textiles)</option>
+                            <option value="paper">10. 造紙工業 (Paper)</option>
+                            <option value="rubber">12. 橡膠工業 (Rubber)</option>
+                            <option value="glass_ceramics">9. 玻璃陶瓷 (Glass & Ceramics)</option>
+                            <option value="conglomerate">28. 綜合類 (Conglomerate)</option>
+                            <option value="others">33. 其他類 (Others)</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="grid-layout grid-2">
+                    <!-- Card 1: Lifecycle & Overview -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-compass"></i> 產業概況與生命週期</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="meta-row">
+                                <span class="meta-badge" id="indLifecycle">成長期 (Growth)</span>
+                                <span>CAGR: <strong id="indCAGR">12.5%</strong></span>
+                                <span>TAM 規模: <strong id="indTAM">1.0 兆美元</strong></span>
+                            </div>
+                            <h4 class="sub-title"><i class="fa-solid fa-route"></i> 關鍵驅動因子 (Growth Drivers)</h4>
+                            <ul class="custom-bullet" id="indDrivers"></ul>
+                            <h4 class="sub-title"><i class="fa-solid fa-triangle-exclamation"></i> 產業主要風險 (Key Risks)</h4>
+                            <ul class="custom-bullet danger-bullet" id="indRisks"></ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Supply Chain Structure -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-network-wired"></i> 產業鏈上中下游地圖 (Supply Chain)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="supply-chain-flow">
+                                <div class="chain-box upstream">
+                                    <div class="chain-title"><i class="fa-solid fa-cubes"></i> 上游 (Upstream)</div>
+                                    <ul id="chainUpstream"></ul>
+                                </div>
+                                <div class="chain-arrow"><i class="fa-solid fa-arrow-down"></i></div>
+                                <div class="chain-box midstream">
+                                    <div class="chain-title"><i class="fa-solid fa-gears"></i> 中游 (Midstream)</div>
+                                    <ul id="chainMidstream"></ul>
+                                </div>
+                                <div class="chain-arrow"><i class="fa-solid fa-arrow-down"></i></div>
+                                <div class="chain-box downstream">
+                                    <div class="chain-title"><i class="fa-solid fa-shop"></i> 下游 (Downstream)</div>
+                                    <ul id="chainDownstream"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PESTEL & Porter's 5 Forces -->
+                <div class="grid-layout grid-2 margin-top">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-earth-americas"></i> PESTEL 宏觀環境分析</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="pestel-grid" id="pestelGrid"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-hand-fist"></i> 波特五力競爭分析 (Porter's 5 Forces)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" style="height: 280px;">
+                                <canvas id="fiveForcesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: STOCK STRATEGY -->
+            <div class="tab-pane" id="tab-strategy">
+                <div class="grid-layout grid-2">
+                    <!-- Strategy Recommendation Hero -->
+                    <div class="card highlight-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-bullseye"></i> 最佳投資策略定調 (Strategy Verdict)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="verdict-box">
+                                <h2 id="strategyVerdictTitle">長線價值成長策略</h2>
+                                <p id="strategyVerdictDesc">企業具備強大護城河與高 ROE，且評價處於合理區間，適合逢低分批建立長期核心持股。</p>
+                            </div>
+                            <div class="tech-signals-box">
+                                <h4><i class="fa-solid fa-signal"></i> 技術面與訊號觀察：</h4>
+                                <ul id="techSignalsList"></ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial Health Radar/Breakdown -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-heart-pulse"></i> 財務體質四角強度評估</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="financial-meter-grid">
+                                <div class="meter-item">
+                                    <span>營收成長動能</span>
+                                    <div class="bar-bg"><div class="bar-fill" id="mRevFill" style="width: 85%;"></div></div>
+                                </div>
+                                <div class="meter-item">
+                                    <span>毛利率附加價值</span>
+                                    <div class="bar-bg"><div class="bar-fill" id="mGrossFill" style="width: 90%;"></div></div>
+                                </div>
+                                <div class="meter-item">
+                                    <span>ROE 股東回報率</span>
+                                    <div class="bar-bg"><div class="bar-fill" id="mROEFill" style="width: 95%;"></div></div>
+                                </div>
+                                <div class="meter-item">
+                                    <span>現金流充沛度</span>
+                                    <div class="bar-bg"><div class="bar-fill" id="mFCFFill" style="width: 80%;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SWOT Grid -->
+                <div class="card margin-top">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-border-all"></i> SWOT 企業優劣勢與機會威脅分析</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="swot-grid">
+                            <div class="swot-box swot-s">
+                                <h4><i class="fa-solid fa-thumbs-up"></i> Strengths (優勢)</h4>
+                                <ul id="swotS"></ul>
+                            </div>
+                            <div class="swot-box swot-w">
+                                <h4><i class="fa-solid fa-thumbs-down"></i> Weaknesses (劣勢)</h4>
+                                <ul id="swotW"></ul>
+                            </div>
+                            <div class="swot-box swot-o">
+                                <h4><i class="fa-solid fa-lightbulb"></i> Opportunities (機會)</h4>
+                                <ul id="swotO"></ul>
+                            </div>
+                            <div class="swot-box swot-t">
+                                <h4><i class="fa-solid fa-shield-virus"></i> Threats (威脅)</h4>
+                                <ul id="swotT"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: VALUATION ANALYSIS -->
+            <div class="tab-pane" id="tab-valuation">
+                <!-- Control Panel & Interactive Sliders -->
+                <div class="card valuation-ctrl-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-sliders"></i> DCF 現金流量折現模型參數調控</h3>
+                    </div>
+                    <div class="card-body grid-layout grid-3">
+                        <div class="slider-group">
+                            <label>未來5年現金流成長率 ($g$): <strong id="valGrowthLabel">12.0%</strong></label>
+                            <input type="range" id="growthSlider" min="0" max="40" step="0.5" value="12.0" oninput="recalculateValuation()">
+                        </div>
+                        <div class="slider-group">
+                            <label>折現率 / WACC ($r$): <strong id="valDiscountLabel">9.0%</strong></label>
+                            <input type="range" id="discountSlider" min="5" max="18" step="0.5" value="9.0" oninput="recalculateValuation()">
+                        </div>
+                        <div class="slider-group">
+                            <label>永續成長率 ($g_{terminal}$): <strong id="valTerminalLabel">2.5%</strong></label>
+                            <input type="range" id="terminalSlider" min="1" max="5" step="0.1" value="2.5" oninput="recalculateValuation()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Valuation Results Summary -->
+                <div class="grid-layout grid-2 margin-top">
+                    <!-- Valuation Gauge Card -->
+                    <div class="card flex-center">
+                        <div class="card-header text-center">
+                            <h3>安全邊際 (Margin of Safety) 與估值狀態</h3>
+                        </div>
+                        <div class="card-body flex-center">
+                            <div class="status-gauge-box">
+                                <span class="badge-status" id="valStatusBadge">合理偏低</span>
+                                <div class="mos-val" id="mosValue">+18.5%</div>
+                                <span class="mos-sub">當前安全邊際</span>
+                            </div>
+                            <div class="price-comparison-table">
+                                <div class="p-row"><span>當前市場股價</span><strong id="valCurrPrice">$965.0</strong></div>
+                                <div class="p-row highlight"><span>綜合加權內在合理價</span><strong id="valFairPrice">$1,143.5</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Multi-Model Price Table -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-layer-group"></i> 多重模型定價對照表 (Multi-Valuation Models)</h3>
+                        </div>
+                        <div class="card-body">
+                            <table class="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>評價模型</th>
+                                        <th>便宜價 (Undervalued)</th>
+                                        <th>合理價 (Fair Value)</th>
+                                        <th>昂貴價 (Overvalued)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>DCF 現金流量折現模型</strong></td>
+                                        <td id="dcfCheap">$850.0</td>
+                                        <td id="dcfFair" class="table-fair">$1,120.0</td>
+                                        <td id="dcfExpensive">$1,450.0</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>歷史本益比河流圖 (P/E Band)</strong></td>
+                                        <td id="peCheap">$709.2</td>
+                                        <td id="peFair" class="table-fair">$965.3</td>
+                                        <td id="peExpensive">$1,255.0</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>歷史本淨比區間 (P/B Band)</strong></td>
+                                        <td id="pbCheap">$723.7</td>
+                                        <td id="pbFair" class="table-fair">$964.9</td>
+                                        <td id="pbExpensive">$1,254.4</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>股利折現模型 (DDM)</strong></td>
+                                        <td id="ddmCheap">$337.7</td>
+                                        <td id="ddmFair" class="table-fair">$472.8</td>
+                                        <td id="ddmExpensive">$675.4</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Valuation Visual Chart -->
+                <div class="card margin-top">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-line"></i> 估值區間視覺化對比圖 (Price vs Valuation Bands)</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height: 300px;">
+                            <canvas id="valuationBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: REPORT GENERATOR -->
+            <div class="tab-pane" id="tab-report">
+                <div class="report-toolbar">
+                    <h2><i class="fa-solid fa-file-pdf"></i> 個股與產業綜合分析研究報告</h2>
+                    <button class="btn btn-primary" onclick="printReport()"><i class="fa-solid fa-print"></i> 一鍵列印 / 存為 PDF</button>
+                </div>
+
+                <div class="report-paper" id="printableReport">
+                    <div class="report-header">
+                        <div class="rep-title">
+                            <h1 id="repCompanyTitle">台積電 (2330.TW) 綜合分析研究報告</h1>
+                            <div class="rep-meta">產出日期：<span id="repDate">2026-08-15</span> | 分析師：StockMatrix 智能系統</div>
+                        </div>
+                        <div class="rep-badge" id="repVerdictBadge">買入 / 合理偏低</div>
+                    </div>
+
+                    <hr class="rep-divider">
+
+                    <!-- Section 1: Stock Summary -->
+                    <div class="rep-section">
+                        <h3>一、 個股基本面與財務概況</h3>
+                        <div class="rep-grid">
+                            <div><strong>最新股價：</strong> <span id="repPrice">$965.0 TWD</span></div>
+                            <div><strong>市值：</strong> <span id="repCap">25.02 兆</span></div>
+                            <div><strong>本益比 / 本淨比：</strong> <span id="repPEPB">24.5 倍 / 6.8 倍</span></div>
+                            <div><strong>ROE / 毛利率：</strong> <span id="repROEMargin">29.8% / 54.3%</span></div>
+                            <div><strong>每股 EPS / FCF：</strong> <span id="repEPSFCF">$39.40 / $35.20</span></div>
+                            <div><strong>5日線 / 5日乖離率：</strong> <span id="repSMA5BIAS">$0.00 / 0.00%</span></div>
+                            <div><strong>KD / MACD 指標：</strong> <span id="repKDMACD">K:0 D:0 / DIF:0 OSC:0</span></div>
+                            <div><strong>經濟護城河：</strong> <span id="repMoat">Wide (寬廣護城河)</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Industry Overview -->
+                    <div class="rep-section">
+                        <h3>二、 產業地位與宏觀分析</h3>
+                        <p><strong>所屬產業：</strong> <span id="repIndustryName">半導體與晶圓代工</span> (生命週期：<span id="repLifecycle">成長期</span>)</p>
+                        <p><strong>產業關鍵趨勢：</strong> <span id="repIndustryTrend">生成式 AI 算力需求帶動先進製程與先進封裝 (CoWoS) 產能供不應求，產業預期未來數年以高複合成長率推進。</span></p>
+                    </div>
+
+                    <!-- Section 3: SWOT & Strategy -->
+                    <div class="rep-section">
+                        <h3>三、 SWOT 分析與建議投資策略</h3>
+                        <p><strong>推薦策略：</strong> <strong id="repStrategyTitle">長線價值成長策略</strong></p>
+                        <p id="repStrategyDesc">企業具備強大護城河與高 ROE，且評價處於合理區間，適合逢低分批建立長期核心持股。</p>
+                    </div>
+
+                    <!-- Section 4: Valuation & Fair Price -->
+                    <div class="rep-section">
+                        <h3>四、 估值精算與安全邊際</h3>
+                        <table class="rep-table">
+                            <thead>
+                                <tr>
+                                    <th>評價模型</th>
+                                    <th>便宜價</th>
+                                    <th>合理價</th>
+                                    <th>昂貴價</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>DCF 折現模型</td>
+                                    <td id="repDcfC">$850.0</td>
+                                    <td id="repDcfF">$1,120.0</td>
+                                    <td id="repDcfE">$1,450.0</td>
+                                </tr>
+                                <tr>
+                                    <td>歷史 PE 區間</td>
+                                    <td id="repPeC">$709.2</td>
+                                    <td id="repPeF">$965.3</td>
+                                    <td id="repPeE">$1,255.0</td>
+                                </tr>
+                                <tr>
+                                    <td>歷史 PB 區間</td>
+                                    <td id="repPbC">$723.7</td>
+                                    <td id="repPbF">$964.9</td>
+                                    <td id="repPbE">$1,254.4</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="rep-summary-box">
+                            <div>綜合內在合理價：<strong id="repFairPrice" class="text-primary">$1,143.5</strong></div>
+                            <div>當前安全邊際 (Margin of Safety)：<strong id="repMOS" class="text-success">+18.5%</strong></div>
+                            <div>評價結論：<strong id="repValStatus">合理偏低 (具吸引力)</strong></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: SKILLS EDITOR -->
+            <div class="tab-pane" id="tab-skills">
+                <div class="skills-editor-container">
+                    <div class="skills-sidebar">
+                        <h3><i class="fa-solid fa-list-check"></i> Skill 規範列表</h3>
+                        <button class="skill-nav-btn active" onclick="switchSkill('industry')">產業分析規範 (industries analysis skill.md)</button>
+                        <button class="skill-nav-btn" onclick="switchSkill('strategy')">個股策略規範 (stock analysis.md)</button>
+                        <button class="skill-nav-btn" onclick="switchSkill('valuation')">個股評價規範 (stock value analysis.md)</button>
+                    </div>
+
+                    <div class="skills-main">
+                        <div class="skills-header">
+                            <h3 id="currentSkillTitle">industries analysis skill.md</h3>
+                            <button class="btn btn-success" onclick="saveCurrentSkill()"><i class="fa-solid fa-floppy-disk"></i> 儲存規範</button>
+                        </div>
+                        <textarea id="skillContentTextarea" class="skills-textarea"></textarea>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Main JavaScript Logic -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
