@@ -1702,6 +1702,13 @@ def search_stocks():
 
     return jsonify({"status": "success", "results": results[:20]})
 
+@app.route("/api/clear_cache", methods=["GET", "POST"])
+def clear_cache_endpoint():
+    global SEARCHED_STOCK_CACHE
+    size = len(SEARCHED_STOCK_CACHE)
+    SEARCHED_STOCK_CACHE.clear()
+    return jsonify({"status": "success", "message": f"Cleared {size} cached items."})
+
 @app.route("/api/stock/<path:query>", methods=["GET"])
 def get_stock(query):
     query = query.strip()
