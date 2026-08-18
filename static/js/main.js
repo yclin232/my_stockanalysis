@@ -110,6 +110,7 @@ function quickSearch(ticker) {
 // Fetch and Populate Stock Data
 async function loadStockData(ticker) {
     hideSearchError();
+    resetValuationUI();
     try {
         const response = await fetch(`/api/stock/${encodeURIComponent(ticker)}`);
         const result = await response.json();
@@ -459,6 +460,15 @@ async function recalculateValuation() {
     } catch (err) {
         console.error("Valuation calculation error:", err);
     }
+}
+
+function resetValuationUI() {
+    const valCurrPrice = document.getElementById("valCurrPrice");
+    if (valCurrPrice) valCurrPrice.innerText = "...";
+    const valFairPrice = document.getElementById("valFairPrice");
+    if (valFairPrice) valFairPrice.innerText = "...";
+    const mosValue = document.getElementById("mosValue");
+    if (mosValue) mosValue.innerText = "---";
 }
 
 function updateValuationUI(val) {

@@ -480,6 +480,111 @@ FALLBACK_STOCKS = {
         "industry_name": "金融保險業",
         "moat": "Narrow",
         "moat_desc": "台灣最大壽險資產規模與完整金控服務護城河"
+    },
+    "2412.TW": {
+        "ticker": "2412.TW",
+        "name": "中華電",
+        "price": 137.0,
+        "currency": "TWD",
+        "change_percent": 0.37,
+        "market_cap": "1.06兆",
+        "pe_ratio": 26.92,
+        "pb_ratio": 2.90,
+        "eps": 5.09,
+        "bps": 47.26,
+        "dividend_yield": 3.80,
+        "revenue_growth": 8.2,
+        "gross_margin": 36.49,
+        "operating_margin": 21.61,
+        "roe": 10.92,
+        "fcf_per_share": 6.37,
+        "high_52w": 147.0,
+        "low_52w": 129.5,
+        "sma5": 136.0,
+        "bias5": 0.74,
+        "sma20": 137.85,
+        "sma60": 136.8,
+        "sma120": 133.86,
+        "rsi": 50.04,
+        "kd_k": 66.7,
+        "kd_d": 33.3,
+        "macd_dif": -0.29,
+        "macd_dea": -0.01,
+        "macd_hist": -0.28,
+        "industry": "telecom_services",
+        "industry_name": "電信網路服務業",
+        "moat": "Wide",
+        "moat_desc": "台灣電信基礎設施、固網與行動通訊龍頭，具極高客戶黏著度與龐大現金流護城河"
+    },
+    "2308.TW": {
+        "ticker": "2308.TW",
+        "name": "台達電",
+        "price": 400.0,
+        "currency": "TWD",
+        "change_percent": 1.25,
+        "market_cap": "1.04兆",
+        "pe_ratio": 31.1,
+        "pb_ratio": 4.85,
+        "eps": 12.85,
+        "bps": 82.5,
+        "dividend_yield": 2.25,
+        "revenue_growth": 14.5,
+        "gross_margin": 30.5,
+        "operating_margin": 10.8,
+        "roe": 16.2,
+        "fcf_per_share": 10.2,
+        "high_52w": 435.0,
+        "low_52w": 280.0,
+        "sma5": 398.0,
+        "bias5": 0.50,
+        "sma20": 392.0,
+        "sma60": 380.0,
+        "sma120": 350.0,
+        "rsi": 58.0,
+        "kd_k": 65.0,
+        "kd_d": 60.0,
+        "macd_dif": 3.5,
+        "macd_dea": 2.8,
+        "macd_hist": 0.7,
+        "industry": "electric_machinery",
+        "industry_name": "電源管理與 AI 電源/散熱",
+        "moat": "Wide",
+        "moat_desc": "全球 AI 伺服器電源與冷卻散熱技術龍頭護城河"
+    },
+    "2303.TW": {
+        "ticker": "2303.TW",
+        "name": "聯電",
+        "price": 54.5,
+        "currency": "TWD",
+        "change_percent": 0.55,
+        "market_cap": "6812億",
+        "pe_ratio": 11.0,
+        "pb_ratio": 1.96,
+        "eps": 4.92,
+        "bps": 27.8,
+        "dividend_yield": 5.50,
+        "revenue_growth": 5.2,
+        "gross_margin": 33.2,
+        "operating_margin": 23.5,
+        "roe": 17.7,
+        "fcf_per_share": 4.1,
+        "high_52w": 58.0,
+        "low_52w": 45.0,
+        "sma5": 54.2,
+        "bias5": 0.55,
+        "sma20": 53.8,
+        "sma60": 52.5,
+        "sma120": 50.0,
+        "rsi": 54.0,
+        "kd_k": 58.0,
+        "kd_d": 52.0,
+        "macd_dif": 0.45,
+        "macd_dea": 0.35,
+        "macd_hist": 0.10,
+        "industry": "semiconductor",
+        "industry_name": "晶圓代工成熟製程",
+        "moat": "Narrow",
+        "moat_desc": "全球晶圓代工排名前列與穩定高股息配息護城河"
     }
 }
 
@@ -1814,7 +1919,16 @@ def get_industry(industry_id):
 @app.route("/api/strategy/analyze", methods=["POST"])
 def analyze_strategy():
     req_data = request.json or {}
-    stock = req_data.get("stock") or fetch_stock_data("2330.TW")
+    stock_input = req_data.get("stock")
+    if isinstance(stock_input, str):
+        stock = fetch_stock_data(stock_input)
+    elif isinstance(stock_input, dict):
+        stock = stock_input
+    else:
+        stock = fetch_stock_data("2330.TW")
+
+    if not stock or not isinstance(stock, dict):
+        stock = fetch_stock_data("2330.TW")
     
     # Financial Health Scoring (0-100)
     rev_val = stock.get("revenue_growth") or 0.0
@@ -1941,42 +2055,52 @@ def analyze_strategy():
 @app.route("/api/valuation/calculate", methods=["POST"])
 def calculate_valuation():
     req_data = request.json or {}
-    stock = req_data.get("stock") or fetch_stock_data("2330.TW")
-    
-    price = float(stock["price"])
-    eps = float(stock["eps"])
-    bps = float(stock["bps"])
-    fcf = float(stock["fcf_per_share"])
-    pe_curr = float(stock["pe_ratio"])
-    
+    stock_input = req_data.get("stock")
+    if isinstance(stock_input, str):
+        stock = fetch_stock_data(stock_input)
+    elif isinstance(stock_input, dict):
+        stock = stock_input
+    else:
+        stock = fetch_stock_data("2330.TW")
+
+    if not stock or not isinstance(stock, dict):
+        stock = fetch_stock_data("2330.TW")
+
+    price = float(stock.get("price") or 100.0)
+    pe_curr = float(stock.get("pe_ratio") if stock.get("pe_ratio") is not None else 16.0)
+    pb_curr = float(stock.get("pb_ratio") if stock.get("pb_ratio") is not None else 2.0)
+    eps = float(stock.get("eps") if stock.get("eps") is not None else round(price / max(1.0, pe_curr), 2))
+    bps = float(stock.get("bps") if stock.get("bps") is not None else round(price / max(0.5, pb_curr), 2))
+    fcf = float(stock.get("fcf_per_share") if stock.get("fcf_per_share") is not None else round(eps * 0.85, 2))
+    rev_growth_val = float(stock.get("revenue_growth") if stock.get("revenue_growth") is not None else 10.0)
+
     # Inputs / Overrides
-    growth_rate = float(req_data.get("growth_rate", stock["revenue_growth"] / 100.0 if stock["revenue_growth"] > 0 else 0.12))
+    growth_rate = float(req_data.get("growth_rate", rev_growth_val / 100.0 if rev_growth_val > 0 else 0.12))
     discount_rate = float(req_data.get("discount_rate", 0.09)) # WACC 9%
     terminal_growth = float(req_data.get("terminal_growth", 0.025)) # 2.5%
-    
+
     # 1. DCF Model Calculation (5-Year)
     dcf_pv_sum = 0.0
     fcf_t = fcf if fcf > 0 else eps * 0.8
     for t in range(1, 6):
         fcf_t = fcf_t * (1 + growth_rate)
         dcf_pv_sum += fcf_t / ((1 + discount_rate) ** t)
-    
+
     # Terminal Value PV
     tv = (fcf_t * (1 + terminal_growth)) / (discount_rate - terminal_growth)
     tv_pv = tv / ((1 + discount_rate) ** 5)
     dcf_fair_value = round(dcf_pv_sum + tv_pv, 2)
-    
+
     # 2. PE Band Valuation (保證 便宜價 < 合理價 < 昂貴價)
     pe_mid = max(3.0, round(pe_curr, 1))
     pe_low = max(2.0, round(pe_mid * 0.75, 1))
     pe_high = max(pe_mid + 1.0, round(pe_mid * 1.3, 1))
-    
+
     pe_cheap = round(pe_low * eps, 2)
     pe_fair = round(pe_mid * eps, 2)
     pe_expensive = round(pe_high * eps, 2)
-    
+
     # 3. PB Band Valuation
-    pb_curr = float(stock["pb_ratio"])
     pb_mid = max(0.5, round(pb_curr, 2))
     pb_low = max(0.3, round(pb_mid * 0.75, 2))
     pb_high = max(pb_mid + 0.2, round(pb_mid * 1.3, 2))
