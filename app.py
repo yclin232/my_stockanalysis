@@ -1112,11 +1112,11 @@ def fetch_stock_data(ticker_symbol):
         if now - cached_ts < 600: # 10 minute TTL
             if ticker_symbol in FALLBACK_STOCKS:
                 fb = FALLBACK_STOCKS[ticker_symbol]
-                if cached_res.get("eps") != fb.get("eps") or cached_res.get("gross_margin") != fb.get("gross_margin"):
+                if cached_res.get("eps") != fb.get("eps") or cached_res.get("gross_margin") != fb.get("gross_margin") or cached_res.get("operating_margin") != fb.get("operating_margin"):
                     del SEARCHED_STOCK_CACHE[ticker_symbol]
                 else:
                     return cached_res
-            elif cached_res.get("eps") is None or cached_res.get("bps") is None:
+            elif cached_res.get("eps") is None or cached_res.get("bps") is None or cached_res.get("gross_margin") is None or cached_res.get("operating_margin") is None:
                 del SEARCHED_STOCK_CACHE[ticker_symbol]
             else:
                 return cached_res
