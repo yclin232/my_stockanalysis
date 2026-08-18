@@ -166,10 +166,10 @@ function updateStockSummaryUI(stock) {
         changeElem.className = "value trend-down";
     }
     
-    document.getElementById("stockPE").innerText = `${stock.pe_ratio} 倍`;
-    document.getElementById("stockPB").innerText = `${stock.pb_ratio} 倍`;
-    document.getElementById("stockYield").innerText = `${stock.dividend_yield}%`;
-    document.getElementById("stockROE").innerText = `${stock.roe}%`;
+    document.getElementById("stockPE").innerText = (stock.pe_ratio !== null && stock.pe_ratio !== undefined) ? `${stock.pe_ratio} 倍` : "None";
+    document.getElementById("stockPB").innerText = (stock.pb_ratio !== null && stock.pb_ratio !== undefined) ? `${stock.pb_ratio} 倍` : "None";
+    document.getElementById("stockYield").innerText = (stock.dividend_yield !== null && stock.dividend_yield !== undefined) ? `${stock.dividend_yield}%` : "None";
+    document.getElementById("stockROE").innerText = (stock.roe !== null && stock.roe !== undefined) ? `${stock.roe}%` : "None";
     
     const bias5 = stock.bias5 !== undefined ? stock.bias5 : (stock.sma5 ? ((stock.price - stock.sma5) / stock.sma5) * 100 : 0);
     const biasElem = document.getElementById("stockBias5");
@@ -183,25 +183,33 @@ function updateStockSummaryUI(stock) {
 // Update Dashboard Tab
 function updateDashboardUI(stock) {
     const currSymbol = stock.currency === 'TWD' ? 'NT$' : '$';
-    document.getElementById("dashCap").innerText = stock.market_cap;
-    document.getElementById("dashEPS").innerText = `${currSymbol}${stock.eps.toFixed(2)}`;
-    document.getElementById("dashBPS").innerText = `${currSymbol}${stock.bps.toFixed(2)}`;
+    document.getElementById("dashCap").innerText = stock.market_cap || "None";
+    
+    document.getElementById("dashEPS").innerText = (stock.eps !== null && stock.eps !== undefined && !isNaN(stock.eps)) ? `${currSymbol}${stock.eps.toFixed(2)}` : "None";
+    document.getElementById("dashBPS").innerText = (stock.bps !== null && stock.bps !== undefined && !isNaN(stock.bps)) ? `${currSymbol}${stock.bps.toFixed(2)}` : "None";
     
     const revElem = document.getElementById("dashRevGrowth");
-    revElem.innerText = `${stock.revenue_growth >= 0 ? '+' : ''}${stock.revenue_growth.toFixed(1)}%`;
-    revElem.className = stock.revenue_growth >= 0 ? "trend-up" : "trend-down";
+    if (stock.revenue_growth !== null && stock.revenue_growth !== undefined && !isNaN(stock.revenue_growth) && stock.revenue_growth !== 0) {
+        revElem.innerText = `${stock.revenue_growth >= 0 ? '+' : ''}${stock.revenue_growth.toFixed(1)}%`;
+        revElem.className = stock.revenue_growth >= 0 ? "trend-up" : "trend-down";
+    } else {
+        revElem.innerText = "None";
+        revElem.className = "trend-neutral";
+    }
     
-    document.getElementById("dashGrossMargin").innerText = `${stock.gross_margin.toFixed(1)}%`;
-    document.getElementById("dashOpMargin").innerText = `${stock.operating_margin.toFixed(1)}%`;
-    document.getElementById("dashFCF").innerText = `${currSymbol}${stock.fcf_per_share.toFixed(2)}`;
+    document.getElementById("dashGrossMargin").innerText = (stock.gross_margin !== null && stock.gross_margin !== undefined && !isNaN(stock.gross_margin) && stock.gross_margin !== 0) ? `${stock.gross_margin.toFixed(1)}%` : "None";
+    document.getElementById("dashOpMargin").innerText = (stock.operating_margin !== null && stock.operating_margin !== undefined && !isNaN(stock.operating_margin) && stock.operating_margin !== 0) ? `${stock.operating_margin.toFixed(1)}%` : "None";
+    document.getElementById("dashFCF").innerText = (stock.fcf_per_share !== null && stock.fcf_per_share !== undefined && !isNaN(stock.fcf_per_share)) ? `${currSymbol}${stock.fcf_per_share.toFixed(2)}` : "None";
     
-    document.getElementById("moatRating").innerText = `${stock.moat} Moat`;
-    document.getElementById("moatDesc").innerText = stock.moat_desc;
+    document.getElementById("moatRating").innerText = `${stock.moat || "None"} Moat`;
+    document.getElementById("moatDesc").innerText = stock.moat_desc || "無詳細護城河資料";
     
     // 52-week position
-    document.getElementById("low52w").innerText = `$${stock.low_52w}`;
-    document.getElementById("high52w").innerText = `$${stock.high_52w}`;
-    const rangePct = Math.min(100, Math.max(0, ((stock.price - stock.low_52w) / (stock.high_52w - stock.low_52w)) * 100));
+    const low52Val = (stock.low_52w !== null && stock.low_52w !== undefined && !isNaN(stock.low_52w)) ? parseFloat(stock.low_52w).toFixed(2) : "None";
+    const high52Val = (stock.high_52w !== null && stock.high_52w !== undefined && !isNaN(stock.high_52w)) ? parseFloat(stock.high_52w).toFixed(2) : "None";
+    document.getElementById("low52w").innerText = low52Val !== "None" ? `$${low52Val}` : "None";
+    document.getElementById("high52w").innerText = high52Val !== "None" ? `$${high52Val}` : "None";
+    const rangePct = (stock.low_52w && stock.high_52w && stock.high_52w > stock.low_52w) ? Math.min(100, Math.max(0, ((stock.price - stock.low_52w) / (stock.high_52w - stock.low_52w)) * 100)) : 50;
     document.getElementById("rangePin").style.left = `${rangePct}%`;
     
     document.getElementById("sma5").innerText = `$${stock.sma5 ? stock.sma5.toFixed(2) : stock.price.toFixed(2)}`;

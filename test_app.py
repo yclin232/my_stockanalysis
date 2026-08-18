@@ -51,6 +51,16 @@ class StockAppTestCase(unittest.TestCase):
         self.assertGreater(data2['data']['gross_margin'], 60.0) # NVDA Gross Margin > 60%
         self.assertGreater(data2['data']['revenue_growth'], 30.0) # NVDA YoY Growth > 30%
 
+        # Foxconn (2317.TW)
+        res3 = self.app.get('/api/stock/2317.TW')
+        self.assertEqual(res3.status_code, 200)
+        data3 = json.loads(res3.data)
+        self.assertEqual(data3['status'], 'success')
+        self.assertGreater(data3['data']['gross_margin'], 3.0) # Foxconn Gross Margin > 3%
+        self.assertGreater(data3['data']['operating_margin'], 2.0) # Foxconn Op Margin > 2%
+        self.assertGreater(data3['data']['revenue_growth'], 10.0) # Foxconn YoY Growth > 10%
+        self.assertGreater(data3['data']['eps'], 10.0) # Foxconn EPS > 10 TWD
+
     def test_kd_macd_indicators(self):
         """Test KD and MACD indicators signals in strategy API"""
         payload = {
