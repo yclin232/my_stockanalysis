@@ -1602,8 +1602,9 @@ def fetch_stock_data(ticker_symbol):
 
                     # 補全機制：當 yfinance 回傳部分欄位為 None 時，自動進行指標反推與保證數據不空白 (對齊 Goodinfo 標準)
                     if pe is None or pe <= 0:
-                        if twse_code in TWSE_LIVE_CACHE and TWSE_LIVE_CACHE[twse_code].get("pe_ratio", 0) > 0:
-                            pe = float(TWSE_LIVE_CACHE[twse_code]["pe_ratio"])
+                        tw_pe = TWSE_LIVE_CACHE[twse_code].get("pe_ratio") if (twse_code in TWSE_LIVE_CACHE and isinstance(TWSE_LIVE_CACHE[twse_code], dict)) else None
+                        if tw_pe and float(tw_pe) > 0:
+                            pe = float(tw_pe)
                         elif eps and eps > 0 and price > 0:
                             pe = round(price / eps, 2)
                         else:
@@ -1615,8 +1616,9 @@ def fetch_stock_data(ticker_symbol):
                             pe = ind_pe_map.get(industry_key, 16.0)
 
                     if pb is None or pb <= 0:
-                        if twse_code in TWSE_LIVE_CACHE and TWSE_LIVE_CACHE[twse_code].get("pb_ratio", 0) > 0:
-                            pb = float(TWSE_LIVE_CACHE[twse_code]["pb_ratio"])
+                        tw_pb = TWSE_LIVE_CACHE[twse_code].get("pb_ratio") if (twse_code in TWSE_LIVE_CACHE and isinstance(TWSE_LIVE_CACHE[twse_code], dict)) else None
+                        if tw_pb and float(tw_pb) > 0:
+                            pb = float(tw_pb)
                         elif bps and bps > 0 and price > 0:
                             pb = round(price / bps, 2)
                         else:
@@ -1636,8 +1638,9 @@ def fetch_stock_data(ticker_symbol):
                             bps = round(price / pb, 2)
 
                     if div_yield is None or div_yield == 0.0:
-                        if twse_code in TWSE_LIVE_CACHE and TWSE_LIVE_CACHE[twse_code].get("dividend_yield", 0) > 0:
-                            div_yield = float(TWSE_LIVE_CACHE[twse_code]["dividend_yield"])
+                        tw_div = TWSE_LIVE_CACHE[twse_code].get("dividend_yield") if (twse_code in TWSE_LIVE_CACHE and isinstance(TWSE_LIVE_CACHE[twse_code], dict)) else None
+                        if tw_div and float(tw_div) > 0:
+                            div_yield = float(tw_div)
                         elif eps and price and price > 0:
                             div_yield = round((eps * 0.65 / price) * 100, 2)
 
