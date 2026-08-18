@@ -1205,45 +1205,77 @@ def fetch_stock_data(ticker_symbol):
 
                     rev_growth = round(float(rev_g_val * 100), 2) if (rev_g_val is not None and not (isinstance(rev_g_val, float) and pd.isna(rev_g_val)) and float(rev_g_val) != 0.0) else None
 
-                    # 4. 毛利率 (Gross Margin) - 檢查 info -> 季報 -> 年報
+                    # 4. 毛利率 (Gross Margin) - 優先計算 4 季 TTM 累計值 (Goodinfo 標準) -> 最新單季 -> info
                     gm_val = info.get("grossMargins")
                     if gm_val is None or (isinstance(gm_val, (int, float)) and (pd.isna(gm_val) or float(gm_val) == 0.0)):
                         gm_val = None
-                        for df in [q_fin, a_fin]:
-                            try:
-                                if df is not None and not df.empty:
-                                    rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in df.index), None)
-                                    gp_row = next((r for r in ['Gross Profit'] if r in df.index), None)
-                                    if rev_row and gp_row:
-                                        r_latest = df.loc[rev_row].iloc[0]
-                                        gp_latest = df.loc[gp_row].iloc[0]
+                        try:
+                            if q_fin is not None and not q_fin.empty:
+                                rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in q_fin.index), None)
+                                gp_row = next((r for r in ['Gross Profit'] if r in q_fin.index), None)
+                                if rev_row and gp_row:
+                                    if len(q_fin.columns) >= 4:
+                                        r_4q = q_fin.loc[rev_row].iloc[:4].sum()
+                                        gp_4q = q_fin.loc[gp_row].iloc[:4].sum()
+                                        if pd.notna(r_4q) and pd.notna(gp_4q) and r_4q > 0:
+                                            gm_val = float(gp_4q / r_4q)
+                                    if gm_val is None:
+                                        r_latest = q_fin.loc[rev_row].iloc[0]
+                                        gp_latest = q_fin.loc[gp_row].iloc[0]
                                         if pd.notna(r_latest) and pd.notna(gp_latest) and r_latest != 0:
                                             gm_val = float(gp_latest / r_latest)
-                                            break
+                        except Exception:
+                            pass
+                        if gm_val is None and a_fin is not None and not a_fin.empty:
+                            try:
+                                rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in a_fin.index), None)
+                                gp_row = next((r for r in ['Gross Profit'] if r in a_fin.index), None)
+                                if rev_row and gp_row:
+                                    r_latest = a_fin.loc[rev_row].iloc[0]
+                                    gp_latest = a_fin.loc[gp_row].iloc[0]
+                                    if pd.notna(r_latest) and pd.notna(gp_latest) and r_latest != 0:
+                                        gm_val = float(gp_latest / r_latest)
                             except Exception:
                                 pass
+
                     if (gm_val is None or (isinstance(gm_val, (int, float)) and (pd.isna(gm_val) or float(gm_val) == 0.0))) and ticker_symbol in FALLBACK_STOCKS:
                         gm_val = FALLBACK_STOCKS[ticker_symbol].get("gross_margin", 0.0) / 100.0
 
                     gross_margin = round(float(gm_val * 100), 2) if (gm_val is not None and not (isinstance(gm_val, float) and pd.isna(gm_val)) and float(gm_val) != 0.0) else None
 
-                    # 5. 營業利益率 (Op Margin) - 檢查 info -> 季報 -> 年報
+                    # 5. 營業利益率 (Op Margin) - 優先計算 4 季 TTM 累計值 (Goodinfo 標準) -> 最新單季 -> info
                     om_val = info.get("operatingMargins")
                     if om_val is None or (isinstance(om_val, (int, float)) and (pd.isna(om_val) or float(om_val) == 0.0)):
                         om_val = None
-                        for df in [q_fin, a_fin]:
-                            try:
-                                if df is not None and not df.empty:
-                                    rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in df.index), None)
-                                    op_row = next((r for r in ['Operating Income', 'Total Operating Income As Reported', 'EBIT'] if r in df.index), None)
-                                    if rev_row and op_row:
-                                        r_latest = df.loc[rev_row].iloc[0]
-                                        op_latest = df.loc[op_row].iloc[0]
+                        try:
+                            if q_fin is not None and not q_fin.empty:
+                                rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in q_fin.index), None)
+                                op_row = next((r for r in ['Operating Income', 'Total Operating Income As Reported', 'EBIT'] if r in q_fin.index), None)
+                                if rev_row and op_row:
+                                    if len(q_fin.columns) >= 4:
+                                        r_4q = q_fin.loc[rev_row].iloc[:4].sum()
+                                        op_4q = q_fin.loc[op_row].iloc[:4].sum()
+                                        if pd.notna(r_4q) and pd.notna(op_4q) and r_4q > 0:
+                                            om_val = float(op_4q / r_4q)
+                                    if om_val is None:
+                                        r_latest = q_fin.loc[rev_row].iloc[0]
+                                        op_latest = q_fin.loc[op_row].iloc[0]
                                         if pd.notna(r_latest) and pd.notna(op_latest) and r_latest != 0:
                                             om_val = float(op_latest / r_latest)
-                                            break
+                        except Exception:
+                            pass
+                        if om_val is None and a_fin is not None and not a_fin.empty:
+                            try:
+                                rev_row = next((r for r in ['Total Revenue', 'Operating Revenue'] if r in a_fin.index), None)
+                                op_row = next((r for r in ['Operating Income', 'Total Operating Income As Reported', 'EBIT'] if r in a_fin.index), None)
+                                if rev_row and op_row:
+                                    r_latest = a_fin.loc[rev_row].iloc[0]
+                                    op_latest = a_fin.loc[op_row].iloc[0]
+                                    if pd.notna(r_latest) and pd.notna(op_latest) and r_latest != 0:
+                                        om_val = float(op_latest / r_latest)
                             except Exception:
                                 pass
+
                     if (om_val is None or (isinstance(om_val, (int, float)) and (pd.isna(om_val) or float(om_val) == 0.0))) and ticker_symbol in FALLBACK_STOCKS:
                         om_val = FALLBACK_STOCKS[ticker_symbol].get("operating_margin", 0.0) / 100.0
 
