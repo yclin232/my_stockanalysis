@@ -281,5 +281,24 @@ class StockAppTestCase(unittest.TestCase):
             self.assertTrue(os.path.exists(path))
             self.assertGreater(os.path.getsize(path), 100)
 
+    def test_persistent_fallback_api(self):
+        """Test fallback database status and auto-persistence upon searching stock"""
+        res_status = self.app.get('/api/fallback/status')
+        self.assertEqual(res_status.status_code, 200)
+        data_status = json.loads(res_status.data)
+        self.assertEqual(data_status['status'], 'success')
+        self.assertGreater(data_status['stock_count'], 0)
+
+        # Test querying stock 2330.TW persists to fallback_stocks.json
+        res_stock = self.app.get('/api/stock/2330.TW')
+        self.assertEqual(res_stock.status_code, 200)
+        fallback_file_path = os.path.join(BASE_DIR, "fallback_stocks.json")
+        self.assertTrue(os.path.exists(fallback_file_path))
+        with open(fallback_file_path, "r", encoding="utf-8") as f:
+            fb_data = json.load(f)
+            self.assertIn("stocks", fb_data)
+            self.assertIn("2330.TW", fb_data["stocks"])
+
 if __name__ == '__main__':
     unittest.main()
+

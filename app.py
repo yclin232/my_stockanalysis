@@ -588,6 +588,111 @@ FALLBACK_STOCKS = {
     }
 }
 
+FALLBACK_FILE = os.path.join(BASE_DIR, "fallback_stocks.json")
+
+def load_persistent_fallback():
+    """Load persistent fallback stocks from fallback_stocks.json and merge into FALLBACK_STOCKS."""
+    global FALLBACK_STOCKS
+    if os.path.exists(FALLBACK_FILE):
+        try:
+            with open(FALLBACK_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                stocks = data.get("stocks", {})
+                for ticker, info in stocks.items():
+                    if isinstance(info, dict) and "ticker" in info:
+                        FALLBACK_STOCKS[ticker] = info
+                logger.info(f"Loaded {len(stocks)} persistent fallback stocks from {FALLBACK_FILE}")
+        except Exception as e:
+            logger.warning(f"Failed to load persistent fallback file {FALLBACK_FILE}: {e}")
+
+def save_persistent_fallback(ticker, stock_data):
+    """Save a newly fetched stock into FALLBACK_STOCKS and write to fallback_stocks.json persistently."""
+    global FALLBACK_STOCKS
+    if not ticker or not stock_data or not isinstance(stock_data, dict):
+        return
+
+    FALLBACK_STOCKS[ticker] = stock_data
+    try:
+        current_data = {"last_updated_month": "", "last_updated_timestamp": "", "stocks": {}}
+        if os.path.exists(FALLBACK_FILE):
+            try:
+                with open(FALLBACK_FILE, "r", encoding="utf-8") as f:
+                    current_data = json.load(f)
+            except Exception:
+                pass
+        
+        current_data.setdefault("stocks", {})[ticker] = stock_data
+        
+        with open(FALLBACK_FILE, "w", encoding="utf-8") as f:
+            json.dump(current_data, f, ensure_ascii=False, indent=2)
+        logger.info(f"Saved stock {ticker} to persistent fallback storage.")
+    except Exception as e:
+        logger.warning(f"Failed to save stock {ticker} to {FALLBACK_FILE}: {e}")
+
+def batch_update_fallback_stocks():
+    """
+    Refresh data for all stocks in FALLBACK_STOCKS by fetching fresh market & financial data,
+    then save to fallback_stocks.json.
+    """
+    global FALLBACK_STOCKS
+    logger.info("Starting batch update for fallback stock dataset...")
+    tickers = list(FALLBACK_STOCKS.keys())
+    updated_count = 0
+    for t in tickers:
+        try:
+            if t in SEARCHED_STOCK_CACHE:
+                del SEARCHED_STOCK_CACHE[t]
+            fresh_data = fetch_stock_data(t)
+            if fresh_data and isinstance(fresh_data, dict):
+                FALLBACK_STOCKS[t] = fresh_data
+                updated_count += 1
+        except Exception as err:
+            logger.warning(f"Error refreshing fallback stock {t}: {err}")
+    
+    import datetime
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    current_month = datetime.datetime.now().strftime("%Y-%m")
+    
+    file_data = {
+        "last_updated_month": current_month,
+        "last_updated_timestamp": now_str,
+        "stocks": FALLBACK_STOCKS
+    }
+    try:
+        with open(FALLBACK_FILE, "w", encoding="utf-8") as f:
+            json.dump(file_data, f, ensure_ascii=False, indent=2)
+        logger.info(f"Batch update completed for {updated_count}/{len(tickers)} stocks. Updated timestamp: {now_str}")
+    except Exception as e:
+        logger.warning(f"Failed to write batch update to {FALLBACK_FILE}: {e}")
+    return updated_count
+
+def check_and_run_monthly_update():
+    """
+    Checks if today is on or after the 11th of the month and if an update has not been performed
+    for the current month. If so, triggers batch_update_fallback_stocks().
+    """
+    import datetime
+    now = datetime.datetime.now()
+    current_month = now.strftime("%Y-%m")
+    day_of_month = now.day
+
+    last_month = ""
+    if os.path.exists(FALLBACK_FILE):
+        try:
+            with open(FALLBACK_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                last_month = data.get("last_updated_month", "")
+        except Exception:
+            pass
+
+    if day_of_month >= 11 and last_month != current_month:
+        logger.info(f"Today is day {day_of_month} (>=11) and last update month was '{last_month}' (current month '{current_month}'). Triggering monthly refresh...")
+        batch_update_fallback_stocks()
+    else:
+        logger.info(f"Monthly update check: day={day_of_month}, last_month='{last_month}', current_month='{current_month}'. No auto-update needed right now.")
+
+
+
 
 # Pre-defined Industry Framework Data
 INDUSTRIES_DATA = {
@@ -1717,6 +1822,7 @@ def fetch_stock_data(ticker_symbol):
                         stock_data_res["moat_desc"] = f"強大商業技術與 ROE {r_val}% 之獲利能力護城河" if r_val else "公司商業地位護城河"
 
                     SEARCHED_STOCK_CACHE[ticker_symbol] = (stock_data_res, time.time())
+                    save_persistent_fallback(ticker_symbol, stock_data_res)
                     return stock_data_res
         except Exception as e:
             logger.error(f"yfinance fetch timeout or error for {ticker_symbol}: {e}")
@@ -1796,10 +1902,19 @@ def fetch_stock_data(ticker_symbol):
                 "moat_desc": f"TWSE 官方認證企業與 ROE {roe}% 之獲利能力護城河" if roe else "公司商業地位護城河"
             }
             SEARCHED_STOCK_CACHE[ticker_symbol] = (tw_res, time.time())
+            save_persistent_fallback(ticker_symbol, tw_res)
             return tw_res
 
     # Strict Data Grounding: No fake dummy stock data allowed!
     return None
+
+# Initialize persistent fallback database & monthly auto-update check (after fetch_stock_data is defined)
+try:
+    load_persistent_fallback()
+    import threading
+    threading.Thread(target=check_and_run_monthly_update, daemon=True).start()
+except Exception as e:
+    logger.warning(f"Failed to initialize persistent fallback loader or monthly scheduler: {e}")
 
 # API Routes
 @app.route("/")
@@ -1846,6 +1961,38 @@ def clear_cache_endpoint():
     size = len(SEARCHED_STOCK_CACHE)
     SEARCHED_STOCK_CACHE.clear()
     return jsonify({"status": "success", "message": f"Cleared {size} cached items."})
+
+@app.route("/api/fallback/status", methods=["GET"])
+def fallback_status():
+    last_month = ""
+    last_ts = ""
+    if os.path.exists(FALLBACK_FILE):
+        try:
+            with open(FALLBACK_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                last_month = data.get("last_updated_month", "")
+                last_ts = data.get("last_updated_timestamp", "")
+        except Exception:
+            pass
+    return jsonify({
+        "status": "success",
+        "stock_count": len(FALLBACK_STOCKS),
+        "last_updated_month": last_month,
+        "last_updated_timestamp": last_ts,
+        "fallback_file": FALLBACK_FILE
+    })
+
+@app.route("/api/fallback/refresh", methods=["GET", "POST"])
+def fallback_refresh():
+    try:
+        updated_count = batch_update_fallback_stocks()
+        return jsonify({
+            "status": "success",
+            "message": f"成功更新 {updated_count} 檔備援股票數據",
+            "total_count": len(FALLBACK_STOCKS)
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/api/stock/<path:query>", methods=["GET"])
 def get_stock(query):
